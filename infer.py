@@ -7,6 +7,7 @@ import math
 from dataclasses import replace
 from pathlib import Path
 
+import numpy as np
 import soundfile as sf
 import torch
 
@@ -71,7 +72,7 @@ class CachedAudioTokenizer:
 
     def _load_cached(self):
         if self._load_path is not None and self._load_path.is_file():
-            print(f"⚡ [Voice Cache] Bypassing audio encoder. Loading matrix directly from: {self._load_path}")
+            print(f"⚡ [Voice Cache] Bypassing neural audio encoder. Loading matrix directly from: {self._load_path}")
             cached_data = torch.load(self._load_path, map_location=self._device)
             return cached_data
         return None
@@ -214,8 +215,12 @@ def main() -> None:
         request["ref_audio_path"] = str(args.ref_audio)
         request["ref_text"] = args.ref_text.strip()
     elif args.ref_codes is not None:
-        # Fallback path pointer when running purely from pre-extracted codes
-        request["ref_audio_path"] = str(args.ref_codes)
+        # Create a valid dummy audio file so soundfile.read in prepare_inputs won't fail
+        dummy_wav = Path("/tmp/breeze_dummy_ref.wav")
+        if not dummy_wav.is_file():
+            dummy_wav.parent.mkdir(parents=True, exist_ok=True)
+            sf.write(str(dummy_wav), np.zeros(24000, dtype=np.float32), 24000)
+        request["ref_audio_path"] = str(dummy_wav)
         request["ref_text"] = args.ref_text.strip()
 
     template_name = select_template_name(request)
